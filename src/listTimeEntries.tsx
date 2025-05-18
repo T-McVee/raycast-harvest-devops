@@ -218,6 +218,15 @@ export default function Command() {
     );
   }
 
+  function entryOverlapsPrevious(entry: HarvestTimeEntry, previousEntry: HarvestTimeEntry | undefined) {
+    if (!previousEntry) return false;
+
+    return (
+      dayjs(entry.spent_date).isSame(previousEntry.spent_date) &&
+      dayjs(entry.started_time).isBefore(previousEntry.ended_time)
+    );
+  }
+
   const init = async () => {
     await refreshMenuBar();
     revalidate();
@@ -240,25 +249,31 @@ export default function Command() {
         </ActionPanel>
       }
     >
-      <List.Section title={`${navigationTitle}`} subtitle={navSubtitle}>
-        {timeEntries.map((entry) => {
+      <List.Section title={`${navigationTitle}`} subtitle={`${navSubtitle} hrs`}>
+        {timeEntries.map((entry, i) => {
           return (
             <List.Item
               id={entry.id.toString()}
               key={entry.id}
-              title={entry.project.name}
-              accessoryTitle={`${entry.client.name}${entry.client.name && entry.task.name ? " | " : ""}${
-                entry.task.name
-              } | ${formatHours(entry.hours.toFixed(2), company)}`}
-              accessoryIcon={
-                entry.external_reference ? { source: entry.external_reference.service_icon_url } : undefined
-              }
-              subtitle={entry.notes}
+              title={`${formatHours(entry.hours.toFixed(2), company)} hrs | ${entry.project.name.slice(0, 24)}...`}
+              accessories={[
+                {
+                  text: entry.notes || "...",
+                  tooltip: `${entry.notes ?? ""} (${entry.task.name})`,
+                  icon: entry.external_reference ? { source: entry.external_reference.service_icon_url } : undefined,
+                },
+              ]}
               keywords={entry.notes
                 ?.split(" ")
                 .concat(entry.client?.name?.split(" "))
                 .concat(entry.task?.name?.split(" "))}
-              icon={entry.is_running ? { tintColor: Color.Orange, source: Icon.Clock } : undefined}
+              icon={
+                entry.is_running
+                  ? { tintColor: Color.Orange, source: Icon.Clock }
+                  : entryOverlapsPrevious(entry, timeEntries[i - 1])
+                  ? { tintColor: Color.Red, source: Icon.Warning }
+                  : undefined
+              }
               actions={
                 <ActionPanel>
                   <ActionPanel.Section title={`${entry.project.name} | ${entry.client.name}`}>
