@@ -264,8 +264,18 @@ export default function Command({
       <Form.TextArea id="notes" title="Notes" value={notes} onChange={setNotes} />
       {company?.wants_timestamp_timers && (
         <>
-          <Form.TextField id="started_time" title="Start Time" placeholder="Leave blank to default to now." />
-          <Form.TextField id="ended_time" title="End Time" placeholder="Leave blank to start a new timer" />
+          <Form.TextField
+            id="started_time"
+            title="Start Time"
+            placeholder="Leave blank to default to now."
+            value={entry ? entry.started_time : undefined}
+          />
+          <Form.TextField
+            id="ended_time"
+            title="End Time"
+            placeholder="Leave blank to start a new timer"
+            value={entry ? entry.ended_time : undefined}
+          />
         </>
       )}
       {!company?.wants_timestamp_timers && (
