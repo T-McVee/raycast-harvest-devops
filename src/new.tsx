@@ -38,6 +38,8 @@ export default function Command({
   const [taskId, setTaskId] = useState<string | null>(entry?.task.id.toString() ?? null);
   const [notes, setNotes] = useState<string>(entry?.notes ?? "");
   const [hours, setHours] = useState<string>(formatHours(entry?.hours?.toFixed(2), company));
+  const [startedTime, setStartedTime] = useState<string | null>(entry?.started_time ?? null);
+  const [endedTime, setEndedTime] = useState<string | null>(entry?.ended_time ?? null);
   const [spentDate, setSpentDate] = useState<Date>(viewDate ?? new Date());
   const { showClient = false } = getPreferenceValues<{ showClient?: boolean }>();
 
@@ -268,13 +270,15 @@ export default function Command({
             id="started_time"
             title="Start Time"
             placeholder="Leave blank to default to now."
-            value={entry ? entry.started_time : undefined}
+            value={startedTime ?? undefined}
+            onChange={setStartedTime}
           />
           <Form.TextField
             id="ended_time"
             title="End Time"
             placeholder="Leave blank to start a new timer"
-            value={entry ? entry.ended_time : undefined}
+            value={endedTime ?? undefined}
+            onChange={setEndedTime}
           />
         </>
       )}
