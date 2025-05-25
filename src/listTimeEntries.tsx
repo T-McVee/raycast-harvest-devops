@@ -218,13 +218,23 @@ export default function Command() {
     );
   }
 
+  function convertToDayJs(dateString: string, timeString: string) {
+    const date = dayjs(dateString, "YYYY-MM-DD");
+
+    const isPM = timeString.includes("pm");
+    const [hour, minute] = timeString.replace("am", "").replace("pm", "").split(":");
+    const hoursIn24 = isPM ? Number(hour) + 12 : Number(hour);
+
+    return date.hour(hoursIn24).minute(Number(minute));
+  }
+
   function entryOverlapsPrevious(entry: HarvestTimeEntry, previousEntry: HarvestTimeEntry | undefined) {
     if (!previousEntry) return false;
 
-    return (
-      dayjs(entry.spent_date).isSame(previousEntry.spent_date) &&
-      dayjs(entry.started_time).isBefore(previousEntry.ended_time)
-    );
+    const entryStart = convertToDayJs(entry.spent_date, entry.started_time);
+    const previousEnd = convertToDayJs(previousEntry.spent_date, previousEntry.ended_time);
+
+    return entryStart.isBefore(previousEnd);
   }
 
   const init = async () => {
@@ -258,22 +268,22 @@ export default function Command() {
               title={`${formatHours(entry.hours.toFixed(2), company)} hrs | ${entry.project.name.slice(0, 24)}...`}
               accessories={[
                 {
-                  text: entry.notes || "...",
+                  text: entry.notes.replace("Azure DevOps", "").replace("Bug", "🐞").replace("Task", "📋") || "...",
                   tooltip: `${entry.notes ?? ""} (${entry.task.name})`,
                   icon: entry.external_reference ? { source: entry.external_reference.service_icon_url } : undefined,
+                },
+                {
+                  icon: entryOverlapsPrevious(entry, timeEntries[i - 1])
+                    ? { tintColor: Color.Red, source: Icon.Warning }
+                    : undefined,
+                  tooltip: "Overlaps with previous entry",
                 },
               ]}
               keywords={entry.notes
                 ?.split(" ")
                 .concat(entry.client?.name?.split(" "))
                 .concat(entry.task?.name?.split(" "))}
-              icon={
-                entry.is_running
-                  ? { tintColor: Color.Orange, source: Icon.Clock }
-                  : entryOverlapsPrevious(entry, timeEntries[i - 1])
-                  ? { tintColor: Color.Red, source: Icon.Warning }
-                  : undefined
-              }
+              icon={entry.is_running ? { tintColor: Color.Orange, source: Icon.Clock } : undefined}
               actions={
                 <ActionPanel>
                   <ActionPanel.Section title={`${entry.project.name} | ${entry.client.name}`}>
