@@ -53,6 +53,10 @@
               "value": "created-asc"
             },
             {
+              "title": "Chronological",
+              "value": "chronological"
+            },
+            {
               "title": "No Sorting",
               "value": "none"
             }

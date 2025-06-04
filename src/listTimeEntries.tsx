@@ -40,7 +40,7 @@ dayjs.extend(isYesterday);
 dayjs.extend(relativeTime);
 
 export interface Preferences {
-  sortBy: "updated-desc" | "updated-asc" | "created-desc" | "created-asc" | "none";
+  sortBy: "updated-desc" | "updated-asc" | "created-desc" | "created-asc" | "chronological" | "none";
 }
 
 export default function Command() {
@@ -89,6 +89,18 @@ export default function Command() {
             return b.is_running ? 1 : -1;
           }
           return dayjs(a.created_at).isAfter(dayjs(b.created_at)) ? 1 : -1;
+        });
+        break;
+      }
+      case "chronological": {
+        timeEntries.sort((a, b) => {
+          if (a.started_time && b.started_time) {
+            const aStart = convertToDayJs(a.spent_date, a.started_time);
+            const bStart = convertToDayJs(b.spent_date, b.started_time);
+
+            return aStart.isAfter(bStart) ? 1 : -1;
+          }
+          return 0;
         });
         break;
       }
@@ -219,13 +231,20 @@ export default function Command() {
   }
 
   function convertToDayJs(dateString: string, timeString: string) {
-    const date = dayjs(dateString, "YYYY-MM-DD");
-
     const isPM = timeString.includes("pm");
     const [hour, minute] = timeString.replace("am", "").replace("pm", "").split(":");
-    const hoursIn24 = isPM ? Number(hour) + 12 : Number(hour);
 
-    return date.hour(hoursIn24).minute(Number(minute));
+    // convert hours to 24 hour format
+    let hoursIn24 = Number(hour);
+    if (isPM && hour !== "12") {
+      hoursIn24 += 12;
+    } else if (!isPM && hour === "12") {
+      hoursIn24 = 0;
+    }
+
+    const date = dayjs(dateString, "YYYY-MM-DD").set("hour", hoursIn24).set("minute", Number(minute));
+
+    return date;
   }
 
   function entryOverlapsPrevious(entry: HarvestTimeEntry, previousEntry: HarvestTimeEntry | undefined) {
