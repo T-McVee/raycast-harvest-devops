@@ -32,16 +32,16 @@ export function isAxiosError(error: any): error is AxiosError {
 }
 
 interface Preferences {
-  token: string;
+  harvestToken: string;
   accountID: string;
   timeFormat: "hours_minutes" | "decimal" | "company";
 }
 
-const { token, accountID }: Preferences = getPreferenceValues();
+const { harvestToken, accountID }: Preferences = getPreferenceValues();
 const api = axios.create({
   baseURL: "https://api.harvestapp.com/v2",
   headers: {
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${harvestToken}`,
     "Harvest-Account-Id": accountID,
     "User-Agent": "Raycast Extension (https://github.com/eluce2)",
     "Content-Type": "application/json",

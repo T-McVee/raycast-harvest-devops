@@ -1,9 +1,9 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "harvest",
-  "title": "Harvest",
-  "description": "Access Harvest Time Entries",
-  "icon": "harvest-logo-icon.png",
+  "title": "Harvest + DevOps",
+  "description": "Access Harvest Time Entries. Sync with Azure DevOps.",
+  "icon": "harvest-ado.png",
   "author": "eluce2",
   "contributors": [
     "bchopson",
@@ -115,7 +115,7 @@
   ],
   "preferences": [
     {
-      "name": "token",
+      "name": "harvestToken",
       "title": "Personal Access Token",
       "description": "Harvest Token",
       "required": true,
@@ -158,12 +158,53 @@
           "value": "decimal"
         }
       ]
+    },
+    {
+      "name": "adoPersonalAccessToken",
+      "title": "Azure DevOps PAT",
+      "description": "The personal access token for the given Azure DevOps account. Don't base64 encode it, just paste it as is.",
+      "required": true,
+      "placeholder": "urbyvbv....",
+      "type": "password"
+    },
+    {
+      "name": "adoEmail",
+      "title": "Azure DevOps Email",
+      "description": "The email address of your Azure DevOps account",
+      "placeholder": "example@test.com",
+      "required": true,
+      "type": "textfield"
+    },
+    {
+      "name": "adoOrganizationName",
+      "title": "Azure DevOps Organization Name",
+      "description": "The organization name of the Azure DevOps account which you will search through",
+      "placeholder": "myorg",
+      "required": true,
+      "type": "textfield"
+    },
+    {
+      "name": "adoOrganizationURL",
+      "title": "The organisation URL",
+      "description": "The organisation URL of the Azure DevOps account which you will search through",
+      "placeholder": "https://dev.azure.com/myorg",
+      "required": true,
+      "type": "textfield"
+    },
+    {
+      "name": "adoProjectName",
+      "title": "Azure DevOps Project Name",
+      "description": "The project name of the Azure DevOps account which you will search through",
+      "placeholder": "myproject",
+      "required": false,
+      "type": "textfield"
     }
   ],
   "dependencies": {
     "@raycast/api": "^1.68.0",
     "@raycast/utils": "^1.3.1",
     "axios": "^0.23.0",
+    "azure-devops-node-api": "^15.1.0",
     "dayjs": "^1.11.11",
     "lodash": "^4.17.21"
   },

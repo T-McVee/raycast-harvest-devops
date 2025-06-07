@@ -18,7 +18,10 @@ import { HarvestProjectAssignment, HarvestTimeEntry } from "./services/responseT
 import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
 import { Dictionary, find, groupBy, isDate, isEmpty, omitBy, reduce } from "lodash";
+import { sortWorkItems } from "./devops/functions";
 dayjs.extend(isToday);
+
+import { mockWorkItems } from "../mocks/mock-work-items";
 
 export default function Command({
   onSave = async () => {
@@ -41,6 +44,10 @@ export default function Command({
   const [startedTime, setStartedTime] = useState<string | null>(entry?.started_time ?? null);
   const [endedTime, setEndedTime] = useState<string | null>(entry?.ended_time ?? null);
   const [spentDate, setSpentDate] = useState<Date>(viewDate ?? new Date());
+
+  const [isDevOpsProjectLinked, setIsDevOpsProjectLinked] = useState<boolean>(false);
+  const [devopsProjectId, setDevopsProjectId] = useState<string | null>(null);
+
   const { showClient = false } = getPreferenceValues<{ showClient?: boolean }>();
 
   useEffect(() => {
@@ -75,6 +82,11 @@ export default function Command({
       []
     );
   }, [projects]);
+
+  const sortedWorkItems = useMemo(() => {
+    const x = sortWorkItems(mockWorkItems);
+    return x;
+  }, [mockWorkItems]);
 
   useEffect(() => {
     if (!entry) {
@@ -260,6 +272,51 @@ export default function Command({
           return <Form.Dropdown.Item value={task.task.id.toString()} title={task.task.name} key={task.id} />;
         })}
       </Form.Dropdown>
+      <Form.Checkbox
+        id="is_devops_project_linked"
+        label="LinkDevOps task"
+        value={isDevOpsProjectLinked}
+        onChange={(newValue) => {
+          setIsDevOpsProjectLinked(newValue);
+          setDevopsProjectId(null);
+          setNotes("");
+        }}
+        info="Check to use a DevOps Project"
+      />
+
+      {isDevOpsProjectLinked && (
+        <Form.Dropdown
+          id="devops_project_id"
+          key={`devops-project-${entry?.id}`}
+          title="DevOps Project"
+          value={devopsProjectId ?? ""}
+          onChange={(newValue) => {
+            setDevopsProjectId(newValue);
+
+            const workItemsFlattened = sortedWorkItems.flatMap((userStory: any) => userStory.tasks);
+            const task = workItemsFlattened.find((task: any) => task.id.toString() === newValue);
+            if (task) {
+              setNotes(`#${task.id} - ${task.title}`);
+            }
+          }}
+        >
+          {sortedWorkItems?.map((userStory: any) => {
+            return (
+              <Form.Dropdown.Section title={`${userStory.id} - ${userStory.title}`} key={userStory.id}>
+                {userStory?.tasks?.map((task: any) => {
+                  return (
+                    <Form.Dropdown.Item
+                      value={task.id.toString()}
+                      title={`${task.id.toString()} - ${task.title}`}
+                      key={task.id}
+                    />
+                  );
+                })}
+              </Form.Dropdown.Section>
+            );
+          })}
+        </Form.Dropdown>
+      )}
 
       <Form.Separator />
 
