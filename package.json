@@ -16,7 +16,7 @@
   "commands": [
     {
       "name": "new",
-      "icon": "add.png",
+      "icon": "add-01.png",
       "title": "New Time Entry",
       "subtitle": "Harvest",
       "description": "Start a new Timer",
@@ -24,7 +24,7 @@
     },
     {
       "name": "listTimeEntries",
-      "icon": "timer.png",
+      "icon": "timer-01.png",
       "title": "Today's Timesheet",
       "preferences": [
         {
@@ -69,7 +69,7 @@
     },
     {
       "name": "stopTimer",
-      "icon": "stop.png",
+      "icon": "stop-01.png",
       "title": "Stop Timer",
       "subtitle": "Harvest",
       "description": "Stop your running timer",
@@ -77,7 +77,7 @@
     },
     {
       "name": "toggleTimer",
-      "icon": "toggle.png",
+      "icon": "toggle-01.png",
       "title": "Toggle Timer",
       "subtitle": "Harvest",
       "description": "Toggles the most recently used Harvest Timer",
@@ -116,29 +116,31 @@
   "preferences": [
     {
       "name": "harvestToken",
-      "title": "Personal Access Token",
-      "description": "Harvest Token",
+      "title": "Harvest PAT",
+      "description": "Harvest Personal Access Token",
+      "placeholder": "urbyvbv....",
       "required": true,
       "link": "https://id.getharvest.com/developers",
       "type": "password"
     },
     {
-      "name": "accountID",
+      "name": "harvestAccountID",
       "title": "Harvest Account ID",
+      "placeholder": "123456",
       "required": true,
       "description": "Harvest Account ID",
       "link": "https://id.getharvest.com/developers",
       "type": "textfield"
     },
     {
-      "name": "showClient",
+      "name": "harvestShowClient",
       "description": "in the time entry form",
       "required": false,
       "label": "Show Client Name above selected project",
       "type": "checkbox"
     },
     {
-      "name": "timeFormat",
+      "name": "harvestTimeFormat",
       "title": "Time Format",
       "required": false,
       "description": "Time Format",

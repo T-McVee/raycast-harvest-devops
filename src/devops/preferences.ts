@@ -37,11 +37,3 @@ export function baseApiUrlEntities(): string {
   }
   return `https://vssps.dev.azure.com/${adoOrganizationName}`;
 }
-
-// export const PROJECT_NAME = "Report Once Solution (RoS) for eHealth";
-// export const PROJECT_ID = "7039ae20-af42-430d-9db6-943c3167264b";
-
-// export const TEAM_NAME = "00821.26 Minor enhancements";
-// export const TEAM_ID = "9fbbd774-3802-4f00-8baa-40a13512d7ec";
-
-// export const ITERATION_ID = "14b18204-b64f-4a5e-9402-227241d057a2";

@@ -33,16 +33,16 @@ export function isAxiosError(error: any): error is AxiosError {
 
 interface Preferences {
   harvestToken: string;
-  accountID: string;
-  timeFormat: "hours_minutes" | "decimal" | "company";
+  harvestAccountID: string;
+  harvestTimeFormat: "hours_minutes" | "decimal" | "company";
 }
 
-const { harvestToken, accountID }: Preferences = getPreferenceValues();
+const { harvestToken, harvestAccountID }: Preferences = getPreferenceValues();
 const api = axios.create({
   baseURL: "https://api.harvestapp.com/v2",
   headers: {
     Authorization: `Bearer ${harvestToken}`,
-    "Harvest-Account-Id": accountID,
+    "Harvest-Account-Id": harvestAccountID,
     "User-Agent": "Raycast Extension (https://github.com/eluce2)",
     "Content-Type": "application/json",
   },
@@ -103,6 +103,7 @@ async function fetchProjects() {
     if (resp.data.total_pages >= resp.data.page) break;
     page += 1;
   }
+
   return project_assignments;
 }
 
@@ -227,9 +228,12 @@ export async function refreshMenuBar() {
 
 export function formatHours(hours: string | undefined, company: HarvestCompany | undefined): string {
   if (!hours) return "";
-  const { timeFormat }: Preferences = getPreferenceValues();
+  const { harvestTimeFormat }: Preferences = getPreferenceValues();
 
-  if (timeFormat === "hours_minutes" || (timeFormat === "company" && company?.time_format === "hours_minutes")) {
+  if (
+    harvestTimeFormat === "hours_minutes" ||
+    (harvestTimeFormat === "company" && company?.time_format === "hours_minutes")
+  ) {
     // write the elapsed number of minutes as hours and minutes
     return dayjs.duration(parseFloat(hours), "hours").format("H:mm");
   }
