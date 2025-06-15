@@ -25,6 +25,7 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 dayjs.extend(duration);
 import { useCachedPromise, useCachedState } from "@raycast/utils";
+import { HarvestLocalStorageKeys } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function isAxiosError(error: any): error is AxiosError {
@@ -118,12 +119,12 @@ export function useMyProjects() {
 }
 
 export async function getMyId() {
-  const id = await LocalStorage.getItem("myId");
+  const id = await LocalStorage.getItem(HarvestLocalStorageKeys.MyId);
   if (id) return id;
 
   const resp = await harvestAPI<HarvestUserResponse>({ url: "/users/me" });
 
-  await LocalStorage.setItem("myId", resp.data.id);
+  await LocalStorage.setItem(HarvestLocalStorageKeys.MyId, resp.data.id);
   return resp.data.id;
 }
 
@@ -180,7 +181,7 @@ export async function newTimeEntry(param: NewTimeEntryDuration | NewTimeEntrySta
   return resp.data;
 }
 
-export async function stopTimer(entry?: HarvestTimeEntry) {
+export async function stopTimer(entry?: HarvestTimeEntry, onStopTimer?: (entry: HarvestTimeEntry) => Promise<void>) {
   if (!entry) {
     const id = await getMyId();
     const resp = await harvestAPI<HarvestTimeEntriesResponse>({
@@ -192,10 +193,16 @@ export async function stopTimer(entry?: HarvestTimeEntry) {
     }
     entry = resp.data.time_entries[0];
   }
+
+  if (onStopTimer) {
+    await onStopTimer(entry);
+  }
+
   await harvestAPI<HarvestTimeEntryResponse>({
     url: `/time_entries/${entry.id}/stop`,
     method: "PATCH",
   });
+
   refreshMenuBar();
   return true;
 }

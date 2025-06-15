@@ -11,6 +11,7 @@ import { LocalStorage } from "@raycast/api";
 import { PagedList } from "azure-devops-node-api/interfaces/common/VSSInterfaces";
 import { WorkItem } from "azure-devops-node-api/interfaces/TestPlanInterfaces";
 import { sortWorkItems } from "./functions";
+import { AdoLocalStorageKeys, AdoWorkItemFields, WorkItemFieldUpdate } from "./types";
 
 const authHandler = azdev.getPersonalAccessTokenHandler(ADO_PAT);
 export const adoConnection = new azdev.WebApi(ADO_ORGANIZATION_URL, authHandler);
@@ -176,13 +177,15 @@ export class AzureDevOps {
         .filter((id): id is number => id !== undefined);
 
       const workItems = await witApi.getWorkItems(workItemIds, [
-        "System.Id",
-        "System.Title",
-        "System.State",
-        "System.AssignedTo",
-        "System.WorkItemType",
-        "System.IterationPath",
-        "System.Parent",
+        AdoWorkItemFields.Id,
+        AdoWorkItemFields.Title,
+        AdoWorkItemFields.State,
+        AdoWorkItemFields.AssignedTo,
+        AdoWorkItemFields.WorkItemType,
+        AdoWorkItemFields.IterationPath,
+        AdoWorkItemFields.Parent,
+        AdoWorkItemFields.CompletedWork,
+        AdoWorkItemFields.RemainingWork,
         // "System.Description",
       ]);
       workItems.forEach((workItem, i) => {
@@ -192,6 +195,76 @@ export class AzureDevOps {
       return workItems;
     } catch (error) {
       console.log("error:", error);
+      throw error;
+    }
+  }
+
+  async getWorkItem(workItemId: number, fields: string[] = []) {
+    console.log("getting work item WITH", workItemId, fields);
+    const api = await this._connection.getWorkItemTrackingApi();
+    try {
+      const result = await api.getWorkItem(workItemId, fields);
+      return result;
+    } catch (error) {
+      console.log("error getting work item", error);
+      throw error;
+    }
+  }
+
+  // list work item fields
+  async getWorkItemFields() {
+    const api = await this._connection.getWorkItemTrackingApi();
+    const result = await api.getFields();
+    result.forEach((field, i) => {
+      if (field.name?.includes("Acceptance")) console.log("field", i, field.name, "|", field.referenceName);
+    });
+    return result;
+  }
+
+  /**
+   * Update a work item field
+   * @param workItemId - The ID of the work item to update
+   * @param field - The name of the field to update
+   * @param value - The value to set for the field
+   * @returns The updated work item
+   */
+  async updateWorkItemField(workItemId: number, field: string, value: string | number) {
+    const api = await this._connection.getWorkItemTrackingApi();
+
+    console.log("updating work item field", workItemId, field, value);
+
+    const operations = [
+      {
+        op: "replace",
+        path: `/fields/${field}`,
+        value: value,
+      },
+    ];
+
+    try {
+      const result = await api.updateWorkItem({}, operations, workItemId);
+      console.log("result", result);
+      return result;
+    } catch (error) {
+      console.log("error updating work item field", error);
+      throw error;
+    }
+  }
+
+  async updateWorkItemFields(workItemId: number, updates: WorkItemFieldUpdate[]) {
+    const api = await this._connection.getWorkItemTrackingApi();
+
+    const operations = updates.map((update) => ({
+      op: "replace",
+      path: `/fields/${update.field}`,
+      value: update.value,
+    }));
+
+    try {
+      const result = await api.updateWorkItem({}, operations, workItemId);
+      return result;
+    } catch (error) {
+      console.log("error updating work item fields", error);
       throw error;
     }
   }
@@ -207,10 +280,14 @@ interface CachedProjects {
 export function useAdoProjects(fetchProjects = true, staleAfterMs = 1000 * 60 * 60 * 24) {
   const [projects, setProjects] = useState<PagedList<TeamProjectReference>>();
 
+  // useEffect(() => {
+  //   adoApiInstance.getWorkItemFields();
+  // }, []);
+
   useEffect(() => {
     if (!fetchProjects) return;
 
-    LocalStorage.getItem(`ado_projects`).then((storedProjects: LocalStorage.Value | undefined) => {
+    LocalStorage.getItem(AdoLocalStorageKeys.AdoProjects).then((storedProjects: LocalStorage.Value | undefined) => {
       if (storedProjects) {
         const cached: CachedProjects = JSON.parse(storedProjects as string);
         const now = Date.now();
@@ -227,7 +304,7 @@ export function useAdoProjects(fetchProjects = true, staleAfterMs = 1000 * 60 * 
             timestamp: Date.now(),
           };
 
-          LocalStorage.setItem(`ado_projects`, JSON.stringify(dataToCache)).catch((error) => {
+          LocalStorage.setItem(AdoLocalStorageKeys.AdoProjects, JSON.stringify(dataToCache)).catch((error) => {
             console.error("Failed to store projects in local storage:", error);
           });
           setProjects(projects);
@@ -252,18 +329,20 @@ export function useAdoProjectTeams(projectId: string | undefined, staleAfterMs: 
   useEffect(() => {
     if (!projectId) return;
 
-    LocalStorage.getItem(`ado_teams_${projectId}`).then((storedTeams: LocalStorage.Value | undefined) => {
-      if (storedTeams) {
-        const cached: CachedTeams = JSON.parse(storedTeams as string);
-        const now = Date.now();
+    LocalStorage.getItem(`${AdoLocalStorageKeys.AdoTeams}_${projectId}`).then(
+      (storedTeams: LocalStorage.Value | undefined) => {
+        if (storedTeams) {
+          const cached: CachedTeams = JSON.parse(storedTeams as string);
+          const now = Date.now();
 
-        // Check if the cached data is still fresh
-        if (now - cached.timestamp < staleAfterMs) {
-          setTeams(cached.teams);
-          return;
+          // Check if the cached data is still fresh
+          if (now - cached.timestamp < staleAfterMs) {
+            setTeams(cached.teams);
+            return;
+          }
         }
       }
-    });
+    );
 
     adoApiInstance.getTeams(projectId, true).then((teams) => {
       // Store teams in local storage for future use
@@ -273,9 +352,11 @@ export function useAdoProjectTeams(projectId: string | undefined, staleAfterMs: 
           timestamp: Date.now(),
         };
 
-        LocalStorage.setItem(`ado_teams_${projectId}`, JSON.stringify(dataToCache)).catch((error) => {
-          console.error("Failed to store teams in local storage:", error);
-        });
+        LocalStorage.setItem(`${AdoLocalStorageKeys.AdoTeams}_${projectId}`, JSON.stringify(dataToCache)).catch(
+          (error) => {
+            console.error("Failed to store teams in local storage:", error);
+          }
+        );
       }
       setTeams(teams);
     });
@@ -305,7 +386,7 @@ export function useAdoCurrentIterationWorkItems(teamContext?: TeamContext, stale
       return;
     }
 
-    const localStorageKey = `ado_current_iteration_work_items_${teamContext.projectId}_${teamContext.teamId}`;
+    const localStorageKey = `${AdoLocalStorageKeys.AdoCurrentIterationWorkItems}_${teamContext.projectId}_${teamContext.teamId}`;
 
     LocalStorage.getItem(localStorageKey).then((storedWorkItems: LocalStorage.Value | undefined) => {
       if (storedWorkItems) {

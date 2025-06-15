@@ -1,9 +1,8 @@
-import * as azdev from "azure-devops-node-api";
-import { ADO_ORGANIZATION_URL, ADO_PAT } from "./preferences";
 import { TeamContext } from "azure-devops-node-api/interfaces/CoreInterfaces";
-
-const authHandler = azdev.getPersonalAccessTokenHandler(ADO_PAT);
-export const adoConnection = new azdev.WebApi(ADO_ORGANIZATION_URL, authHandler);
+import { HarvestTimeEntry } from "../services/responseTypes";
+import { LocalStorage } from "@raycast/api";
+import { AdoLocalStorageKeys, AdoWorkItemFields, WorkItemFieldUpdate } from "./types";
+import { adoApiInstance, adoConnection } from "./AzureDevOps";
 
 // Project functions
 
@@ -269,4 +268,55 @@ export function sortWorkItems(workItems: any[]): GroupedWorkItems[] {
     : [];
 
   return tasksByParent;
+}
+
+export async function stopAdoWorkItemTimer(harvestEntry: HarvestTimeEntry) {
+  console.log("Checking for running ado timer", harvestEntry);
+  const runningAdoTimer = await LocalStorage.getItem(AdoLocalStorageKeys.RunningAdoTimer);
+  if (runningAdoTimer) {
+    console.log("runningAdoTimer", runningAdoTimer);
+    const { harvestEntryId, adoProjectId, adoTeamId, adoWorkItemId } = JSON.parse(runningAdoTimer as string);
+    if (harvestEntryId === harvestEntry.id) {
+      console.log("harvestEntryId matches", harvestEntryId, harvestEntry.id);
+      // get work item's Completed Work value
+      const workItemFields = [
+        AdoWorkItemFields.Id,
+        AdoWorkItemFields.CompletedWork,
+        AdoWorkItemFields.RemainingWork,
+        AdoWorkItemFields.OriginalEstimate,
+      ];
+
+      const workItem = await adoApiInstance.getWorkItem(adoWorkItemId, workItemFields);
+
+      const completedWork = workItem.fields?.[AdoWorkItemFields.CompletedWork];
+      const remainingWork = workItem.fields?.[AdoWorkItemFields.RemainingWork];
+      const originalEstimate = workItem.fields?.[AdoWorkItemFields.OriginalEstimate];
+
+      // get entry's duration
+      const entryDuration = harvestEntry.hours;
+
+      // update work item's Completed Work value
+      if (completedWork && entryDuration) {
+        const updatedCompletedWork = (Number(completedWork) + Number(entryDuration)).toFixed(2);
+        const updatedRemainingWork = (Number(remainingWork) - Number(entryDuration)).toFixed(2);
+
+        const updates: WorkItemFieldUpdate[] = [
+          { field: AdoWorkItemFields.CompletedWork, value: updatedCompletedWork },
+          {
+            field: AdoWorkItemFields.RemainingWork,
+            value: Number(updatedRemainingWork) < 0 ? 0 : updatedRemainingWork,
+          },
+        ];
+
+        await adoApiInstance.updateWorkItemFields(adoWorkItemId, updates);
+        console.log("work item updated");
+      }
+      // remove runningAdoTimer
+    } else {
+      console.log("harvestEntryId", harvestEntryId, "does not match", harvestEntry.id);
+      // await LocalStorage.removeItem(AdoLocalStorageKeys.RunningAdoTimer);
+    }
+  } else {
+    console.log("No running ado timer");
+  }
 }

@@ -1,10 +1,11 @@
 import { showToast, Toast, showHUD } from "@raycast/api";
 import { stopTimer } from "./services/harvest";
+import { stopAdoWorkItemTimer } from "./devops/functions";
 
 export default async function main() {
   const toast = await showToast({ style: Toast.Style.Animated, title: "Loading..." });
   await toast.show();
-  await stopTimer().catch(async (error) => {
+  await stopTimer(undefined, stopAdoWorkItemTimer).catch(async (error) => {
     console.error(error.response.data);
     await toast.hide();
     await showToast({

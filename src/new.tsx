@@ -19,6 +19,8 @@ import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
 import { Dictionary, find, groupBy, isDate, isEmpty, omitBy, reduce } from "lodash";
 import { useAdoCurrentIterationWorkItems, useAdoProjectTeams, useAdoProjects } from "./devops/AzureDevOps";
+import { AdoLocalStorageKeys } from "./devops/types";
+import { HarvestLocalStorageKeys } from "./services/types";
 dayjs.extend(isToday);
 
 export default function Command({
@@ -43,9 +45,9 @@ export default function Command({
   const [endedTime, setEndedTime] = useState<string | null>(entry?.ended_time ?? null);
   const [spentDate, setSpentDate] = useState<Date>(viewDate ?? new Date());
 
+  const [isDevOpsProjectLinked, setIsDevOpsProjectLinked] = useState<boolean>(false);
   const [adoProjectId, setAdoProjectId] = useState<string>();
   const [adoTeamId, setAdoTeamId] = useState<string>();
-  const [isDevOpsProjectLinked, setIsDevOpsProjectLinked] = useState<boolean>(false);
   const [devopsWorkItemId, setDevopsWorkItemId] = useState<string | null>(null);
 
   const { projects: adoProjects } = useAdoProjects(isDevOpsProjectLinked);
@@ -93,7 +95,7 @@ export default function Command({
   useEffect(() => {
     if (!entry) {
       // no entry was passed, recall last submitted project/task
-      LocalStorage.getItem("lastProject").then((value) => {
+      LocalStorage.getItem(HarvestLocalStorageKeys.LastProject).then((value) => {
         console.log("restoring last used entry...", { value });
         if (value) {
           const { projectId, taskId } = JSON.parse(value.toString());
@@ -147,6 +149,7 @@ export default function Command({
     await toast.show();
 
     const data = omitBy(values, isEmpty);
+
     const timeEntry = await newTimeEntry(
       {
         ...data,
@@ -164,7 +167,23 @@ export default function Command({
       });
     });
 
-    await LocalStorage.setItem("lastProject", JSON.stringify({ projectId: values.project_id, taskId: values.task_id }));
+    if (timeEntry?.is_running && isDevOpsProjectLinked) {
+      console.log("Setting runningAdoTimer");
+      const runningTimerDetails = {
+        harvestEntryId: timeEntry.id,
+        adoProjectId: adoProjectId,
+        adoTeamId: adoTeamId,
+        adoWorkItemId: devopsWorkItemId,
+      };
+
+      await LocalStorage.setItem(AdoLocalStorageKeys.RunningAdoTimer, JSON.stringify(runningTimerDetails));
+      console.log("runningAdoTimer set");
+    }
+
+    await LocalStorage.setItem(
+      HarvestLocalStorageKeys.LastProject,
+      JSON.stringify({ projectId: values.project_id, taskId: values.task_id })
+    );
 
     if (timeEntry) {
       toast.hide();
