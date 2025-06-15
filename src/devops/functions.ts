@@ -222,10 +222,20 @@ export async function getWorkItemsInCurrentIteration(teamContext: TeamContext) {
   }
 }
 
+type WorkItemType = "bug" | "task" | "user story" | "feature";
+
+type GroupedWorkItems = {
+  [key in WorkItemType]?: any[];
+};
+
 // Utils
-export function sortWorkItems(workItems: any[]) {
-  const grouped = workItems.reduce((acc, workItem) => {
-    const key = workItem.fields["System.WorkItemType"].toLowerCase();
+export function sortWorkItems(workItems: any[]): GroupedWorkItems[] {
+  const grouped: GroupedWorkItems = workItems.reduce<GroupedWorkItems>((acc, workItem) => {
+    const key = workItem.fields["System.WorkItemType"]?.toLowerCase() as WorkItemType;
+    if (!key) {
+      return acc;
+    }
+
     if (!acc[key]) {
       acc[key] = [];
     }
@@ -235,24 +245,28 @@ export function sortWorkItems(workItems: any[]) {
 
   const { bug, task } = grouped;
   const userStory = grouped["user story"];
+  const tickets = [...(bug ?? []), ...(task ?? [])];
 
-  const tasksByParent = task.reduce((acc: any, task: any) => {
-    const parentId = task.fields["System.Parent"];
-    const transformedTask = {
-      id: task.id,
-      title: task.fields["System.Title"],
-    };
+  const tasksByParent = tickets?.length
+    ? tickets.reduce((acc: any, task: any) => {
+        const parentId = task.fields["System.Parent"];
+        const transformedTask = {
+          id: task.id,
+          title: task.fields["System.Title"],
+          type: task.fields["System.WorkItemType"]?.toLowerCase() as WorkItemType,
+        };
 
-    const parentGroup = acc.find((group: any) => group.id === parentId);
+        const parentGroup = acc.find((group: any) => group.id === parentId);
 
-    if (parentGroup) {
-      parentGroup.tasks.push(transformedTask);
-    } else {
-      const parent = userStory.find((story: any) => story.id === parentId);
-      acc.push({ id: parentId, title: parent?.fields["System.Title"], tasks: [transformedTask] });
-    }
-    return acc;
-  }, [] as any[]);
+        if (parentGroup) {
+          parentGroup.tasks.push(transformedTask);
+        } else {
+          const parent = userStory?.find((story: any) => story.id === parentId);
+          acc.push({ id: parentId, title: parent?.fields["System.Title"], tasks: [transformedTask] });
+        }
+        return acc;
+      }, [] as any[])
+    : [];
 
   return tasksByParent;
 }

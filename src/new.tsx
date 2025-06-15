@@ -18,7 +18,6 @@ import { HarvestProjectAssignment, HarvestTimeEntry } from "./services/responseT
 import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
 import { Dictionary, find, groupBy, isDate, isEmpty, omitBy, reduce } from "lodash";
-import { sortWorkItems } from "./devops/functions";
 import { useAdoCurrentIterationWorkItems, useAdoProjectTeams, useAdoProjects } from "./devops/AzureDevOps";
 dayjs.extend(isToday);
 
@@ -44,16 +43,16 @@ export default function Command({
   const [endedTime, setEndedTime] = useState<string | null>(entry?.ended_time ?? null);
   const [spentDate, setSpentDate] = useState<Date>(viewDate ?? new Date());
 
-  const [adoProjectId, setAdoProjectId] = useState<string | null>(null);
-  const [adoTeamId, setAdoTeamId] = useState<string | null>(null);
+  const [adoProjectId, setAdoProjectId] = useState<string>();
+  const [adoTeamId, setAdoTeamId] = useState<string>();
   const [isDevOpsProjectLinked, setIsDevOpsProjectLinked] = useState<boolean>(false);
   const [devopsWorkItemId, setDevopsWorkItemId] = useState<string | null>(null);
 
   const { projects: adoProjects } = useAdoProjects(isDevOpsProjectLinked);
   const { teams: adoTeams } = useAdoProjectTeams(adoProjectId);
-  const { workItems: adoCurrentIterationWorkItems } = useAdoCurrentIterationWorkItems({
-    projectId: adoProjectId ?? "",
-    teamId: adoTeamId ?? "",
+  const { workItems } = useAdoCurrentIterationWorkItems({
+    projectId: adoProjectId,
+    teamId: adoTeamId,
   });
 
   const { harvestShowClient = false } = getPreferenceValues<{ harvestShowClient?: boolean }>();
@@ -90,12 +89,6 @@ export default function Command({
       []
     );
   }, [projects]);
-
-  const sortedWorkItems = useMemo(() => {
-    if (!adoCurrentIterationWorkItems?.length) return [];
-
-    return sortWorkItems(adoCurrentIterationWorkItems);
-  }, [adoCurrentIterationWorkItems]);
 
   useEffect(() => {
     if (!entry) {
@@ -246,7 +239,7 @@ export default function Command({
   function handleDevOpsWorkItemChange(newValue: string) {
     setDevopsWorkItemId(newValue);
 
-    const workItemsFlattened = sortedWorkItems.flatMap((userStory: any) => userStory.tasks);
+    const workItemsFlattened = workItems.flatMap((userStory: any) => userStory.tasks);
     const task = workItemsFlattened.find((task: any) => task.id.toString() === newValue);
     if (task) {
       setNotes(`#${task.id} - ${task.title}`);
@@ -322,8 +315,10 @@ export default function Command({
             isLoading={!adoProjects}
             onChange={handleDevOpsProjectChange}
           >
-            {adoProjects?.map((project) => {
-              return <Form.Dropdown.Item value={project.id ?? ""} title={project.name ?? ""} key={project.id} />;
+            {adoProjects?.map((project, i) => {
+              return (
+                <Form.Dropdown.Item value={project.id ?? ""} title={project.name ?? ""} key={`${project.id}-${i}`} />
+              );
             })}
           </Form.Dropdown>
           <Form.Dropdown
@@ -333,8 +328,8 @@ export default function Command({
             isLoading={!adoTeams}
             onChange={handleDevOpsTeamChange}
           >
-            {adoTeams?.map((team) => {
-              return <Form.Dropdown.Item value={team.id ?? ""} title={team.name ?? ""} key={team.id} />;
+            {adoTeams?.map((team, i) => {
+              return <Form.Dropdown.Item value={team.id ?? ""} title={team.name ?? ""} key={`${team.id}-${i}`} />;
             })}
           </Form.Dropdown>
           <Form.Dropdown
@@ -343,15 +338,19 @@ export default function Command({
             value={devopsWorkItemId ?? ""}
             onChange={handleDevOpsWorkItemChange}
           >
-            {sortedWorkItems?.map((userStory: any) => {
+            {workItems?.map((userStory: any, i: number) => {
               return (
-                <Form.Dropdown.Section title={`User Story: ${userStory.id} - ${userStory.title}`} key={userStory.id}>
-                  {userStory?.tasks?.map((task: any) => {
+                <Form.Dropdown.Section
+                  title={`User Story: ${userStory.id} - ${userStory.title}`}
+                  key={`${userStory.id}-${i}`}
+                >
+                  {userStory?.tasks?.map((task: any, i: number) => {
                     return (
                       <Form.Dropdown.Item
                         value={task.id.toString()}
                         title={`${task.id.toString()} - ${task.title}`}
-                        key={task.id}
+                        key={`${task.id}-${i}`}
+                        icon={task.type === "bug" ? Icon.Bug : Icon.Circle}
                       />
                     );
                   })}

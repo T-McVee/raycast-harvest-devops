@@ -136,7 +136,7 @@ export class AzureDevOps {
     try {
       const workApi = await this._connection.getWorkApi();
 
-      if (!teamContext) {
+      if (!teamContext || !teamContext.projectId || !teamContext.teamId) {
         throw new Error("Team context not found");
       }
 
@@ -154,7 +154,7 @@ export class AzureDevOps {
 
       const wiql = {
         query: `
-                SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [System.WorkItemType], [System.Parent] 
+                SELECT [System.Id]
                 FROM WorkItems 
                 WHERE [System.TeamProject] = @project 
                 AND [System.IterationPath] = '${currentIteration.path}'
@@ -183,7 +183,6 @@ export class AzureDevOps {
         "System.WorkItemType",
         "System.IterationPath",
         "System.Parent",
-
         // "System.Description",
       ]);
       workItems.forEach((workItem, i) => {
@@ -247,7 +246,7 @@ interface CachedTeams {
   timestamp: number;
 }
 
-export function useAdoProjectTeams(projectId: string | null, staleAfterMs: number = 1000 * 60 * 60 * 24) {
+export function useAdoProjectTeams(projectId: string | undefined, staleAfterMs: number = 1000 * 60 * 60 * 24) {
   const [teams, setTeams] = useState<WebApiTeam[]>([]);
 
   useEffect(() => {
@@ -290,48 +289,64 @@ interface CachedWorkItems {
   timestamp: number;
 }
 
+/**
+ * Get work items for the current iteration for a given team context
+ * @param teamContext - The team context to get work items for
+ * @param staleAfterMs - The time in milliseconds after which the cached work items are considered stale
+ * @returns The work items for the current iteration for the given team context
+ */
 export function useAdoCurrentIterationWorkItems(teamContext?: TeamContext, staleAfterMs: number = 1000 * 60 * 60 * 24) {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
 
   useEffect(() => {
-    if (!teamContext || !teamContext.projectId || !teamContext.teamId) return;
-    console.log("teamContext", teamContext);
+    if (!teamContext || !teamContext.projectId || !teamContext.teamId) {
+      console.log("teamContext missing Ids", teamContext);
+      setWorkItems([]);
+      return;
+    }
 
-    LocalStorage.getItem(`ado_current_iteration_work_items_${teamContext.projectId}_${teamContext.teamId}`).then(
-      (storedWorkItems: LocalStorage.Value | undefined) => {
-        if (storedWorkItems) {
-          const cached: CachedWorkItems = JSON.parse(storedWorkItems as string);
-          const now = Date.now();
+    const localStorageKey = `ado_current_iteration_work_items_${teamContext.projectId}_${teamContext.teamId}`;
 
-          if (now - cached.timestamp < staleAfterMs) {
-            // const sortedWorkItems = sortWorkItems(cached.workItems);
-            setWorkItems(cached.workItems);
-            return;
-          }
-        } else {
-          adoApiInstance.getWorkItemsInCurrentIteration(teamContext).then((workItems) => {
-            const dataToCache: CachedWorkItems = {
-              workItems,
-              timestamp: Date.now(),
-            };
+    LocalStorage.getItem(localStorageKey).then((storedWorkItems: LocalStorage.Value | undefined) => {
+      if (storedWorkItems) {
+        console.log("cached work items found, checking if stale");
+        const cached: CachedWorkItems = JSON.parse(storedWorkItems as string);
+        const now = Date.now();
 
-            LocalStorage.setItem(
-              `ado_current_iteration_work_items_${teamContext.projectId}_${teamContext.teamId}`,
-              JSON.stringify(dataToCache)
-            ).catch((error) => {
-              console.error("Failed to store work items in local storage:", error);
-            });
+        if (now - cached.timestamp < staleAfterMs) {
+          console.log("cached work items are fresh", cached.workItems.length);
+          const workItems = cached.workItems;
 
-            setWorkItems(workItems);
-          });
+          setWorkItems(workItems);
+          return;
         }
+
+        console.log("cached work items are stale");
       }
-    );
 
-    adoApiInstance.getWorkItemsInCurrentIteration(teamContext).then((workItems) => {
-      setWorkItems(workItems);
+      console.log("no cached work items found, fetching from ADO");
+      adoApiInstance.getWorkItemsInCurrentIteration(teamContext).then((workItems) => {
+        console.log("fetched work items", workItems.length);
+
+        const dataToCache: CachedWorkItems = {
+          workItems,
+          timestamp: Date.now(),
+        };
+
+        console.log("caching work items in local storage. key:", localStorageKey);
+        LocalStorage.setItem(localStorageKey, JSON.stringify(dataToCache))
+          .then(() => {
+            console.log("Cache updated successfully.");
+          })
+          .catch((error) => {
+            console.error("Failed to store work items in local storage:", error);
+          });
+
+        console.log("setting work items", workItems.length);
+        setWorkItems(workItems);
+      });
     });
-  }, [teamContext]);
+  }, [teamContext?.projectId, teamContext?.teamId]);
 
-  return { workItems };
+  return { workItems: sortWorkItems(workItems) };
 }
